@@ -5,32 +5,11 @@ local player = Players.LocalPlayer
 -- LocalScript
 -- Put in StarterPlayerScripts or StarterGui
 
-local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local playerGui = player:WaitForChild("PlayerGui")
-
--- Robust client-side mute
-local mutedVolumes = {}
-
-local function muteSound(sound)
-	if sound:IsA("Sound") then
-		if mutedVolumes[sound] == nil then
-			mutedVolumes[sound] = sound.Volume
-		end
-		sound.Volume = 0
-	end
-end
-
-for _, obj in ipairs(game:GetDescendants()) do
-	muteSound(obj)
-end
-
-game.DescendantAdded:Connect(function(obj)
-	muteSound(obj)
-end)
 
 -- Remove old GUI if re-executed (Updated to judepaid)
 local old = playerGui:FindFirstChild("judepaid")
