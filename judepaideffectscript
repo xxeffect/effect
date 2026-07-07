@@ -1,3 +1,4 @@
+
 local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 local ragdollsFolder = Workspace:WaitForChild("Ragdolls")
@@ -8,16 +9,16 @@ local newTexture = "http://www.roblox.com/asset/?id=242986251"
 -- Part 1: Knife Texturing Loop
 task.spawn(function()
     while task.wait() do
-        local vauntless = workspace:FindFirstChild("vauntless")
+        local judepaid = workspace:FindFirstChild("judepaid")
         
         -- Lock in main knives
-        if vauntless then
-            if vauntless:FindFirstChild("KnifeHandle") and vauntless.KnifeHandle:FindFirstChild("Freeze") then
-                vauntless.KnifeHandle.Freeze.Texture = newTexture
+        if judepaid then
+            if judepaid:FindFirstChild("KnifeHandle") and judepaid.KnifeHandle:FindFirstChild("Freeze") then
+                judepaid.KnifeHandle.Freeze.Texture = newTexture
             end
             
-            if vauntless:FindFirstChild("Knife") and vauntless.Knife:FindFirstChild("Handle") and vauntless.Knife.Handle:FindFirstChild("Freeze") then
-                vauntless.Knife.Handle.Freeze.Texture = newTexture
+            if judepaid:FindFirstChild("Knife") and judepaid.Knife:FindFirstChild("Handle") and judepaid.Knife.Handle:FindFirstChild("Freeze") then
+                judepaid.Knife.Handle.Freeze.Texture = newTexture
             end
         end
 
