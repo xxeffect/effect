@@ -1,487 +1,126 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-
--- LocalScript
--- Put in StarterPlayerScripts or StarterGui
-
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local ragdollsFolder = Workspace:WaitForChild("Ragdolls")
 
-local playerGui = player:WaitForChild("PlayerGui")
+-- Asset ID
+local newTexture = "http://www.roblox.com/asset/?id=242986251"
 
--- Remove old GUI if re-executed (Updated to judepaid)
-local old = playerGui:FindFirstChild("judepaid")
-if old then
-	old:Destroy()
+-- Part 1: Knife Texturing Loop
+task.spawn(function()
+    while task.wait() do
+        local vauntless = workspace:FindFirstChild("vauntless")
+        
+        -- Lock in main knives
+        if vauntless then
+            if vauntless:FindFirstChild("KnifeHandle") and vauntless.KnifeHandle:FindFirstChild("Freeze") then
+                vauntless.KnifeHandle.Freeze.Texture = newTexture
+            end
+            
+            if vauntless:FindFirstChild("Knife") and vauntless.Knife:FindFirstChild("Handle") and vauntless.Knife.Handle:FindFirstChild("Freeze") then
+                vauntless.Knife.Handle.Freeze.Texture = newTexture
+            end
+        end
+
+        -- Lock in thrown knives
+        if workspace:FindFirstChild("KnifeHost") then
+            for _, knife in ipairs(workspace.KnifeHost:GetChildren()) do
+                local freeze = knife:FindFirstChild("Freeze")
+                if freeze then
+                    freeze.Texture = newTexture
+                end
+            end
+        end
+    end
+end)
+
+-- Part 2: Ragdoll Dragon Fire Style
+local function applyDragonFireStyle(model)
+    pcall(function()
+        task.wait(0.05) 
+        if not model or not model:IsA("Model") then return end
+
+        -- Total cleanup tracking loop: if the ragdoll leaves the workspace, destroy everything
+        task.spawn(function()
+            while model and model.Parent == ragdollsFolder do
+                task.wait(0.5)
+            end
+            if model then
+                model:Destroy()
+            end
+        end)
+
+        -- Loop through absolutely every descendant to find individual physical body components
+        for _, obj in pairs(model:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" and not obj:FindFirstAncestorOfClass("Accessory") then
+                
+                -- Applied 24, 24, 24 Corroded Metal
+                obj.Color = Color3.fromRGB(24, 24, 24)
+                obj.Transparency = 0
+                obj.Material = Enum.Material.CorrodedMetal
+                
+                -- Clear duplicate custom emitters if they exist on this part
+                local existing = obj:FindFirstChild("DragonFireEmitter")
+                if existing then existing:Destroy() end
+                
+                -- Instantiating the unique ParticleEmitter on this specific physical part
+                local emitter = Instance.new("ParticleEmitter")
+                emitter.Name = "DragonFireEmitter"
+                emitter.Texture = newTexture
+                
+                -- Squash Sequence: 0 0 0 1 0 0 
+                emitter.Squash = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0, 0),
+                    NumberSequenceKeypoint.new(1, 0, 0)
+                })
+                
+                -- Transparency Sequence: 0 0 0 1 0 0 
+                emitter.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0, 0),
+                    NumberSequenceKeypoint.new(1, 0, 0)
+                })
+                
+                -- Scaled down Size Sequence to make particles much smaller
+                emitter.Size = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.2, 0),      -- Reduced from 0.5 to 0.2
+                    NumberSequenceKeypoint.new(0.25, 0.4, 0),    -- Reduced from 1 to 0.4
+                    NumberSequenceKeypoint.new(0.375, 0.15, 0),  -- Reduced from 0.375 to 0.15
+                    NumberSequenceKeypoint.new(1, 0.15, 0)       -- Reduced from 0.375 to 0.15
+                })
+                
+                emitter.Parent = obj
+                
+            elseif obj:IsA("Accessory") then
+                for _, part in pairs(obj:GetDescendants()) do
+                    if part:IsA("BasePart") or part:IsA("Decal") then
+                        part.Transparency = 0
+                    end
+                end
+                
+                task.delay(0.3, function()
+                    if obj and obj.Parent then
+                        for _, part in pairs(obj:GetDescendants()) do
+                            if part:IsA("BasePart") or part:IsA("Decal") then
+                                local fade = TweenService:Create(part, TweenInfo.new(2, Enum.EasingStyle.Linear), {Transparency = 1})
+                                fade:Play()
+                                fade.Completed:Connect(function() 
+                                    if obj then obj:Destroy() end 
+                                end)
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
 end
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "judepaid" -- Updated GUI Name
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.DisplayOrder = 999999
-gui.Parent = playerGui
+-- Listener & Initial Sweep
+ragdollsFolder.ChildAdded:Connect(function(child)
+    if child.Name == "" then applyDragonFireStyle(child) end
+end)
 
-local function corner(parent, radius)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
+for _, child in ipairs(ragdollsFolder:GetChildren()) do
+    if child.Name == "" then applyDragonFireStyle(child) end
 end
 
-local function stroke(parent, color, thickness, transparency)
-	local s = Instance.new("UIStroke")
-	s.Color = color
-	s.Thickness = thickness
-	s.Transparency = transparency or 0
-	s.Parent = parent
-end
-
-local function gradient(parent, c1, c2)
-	local g = Instance.new("UIGradient")
-	g.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, c1),
-		ColorSequenceKeypoint.new(1, c2)
-	})
-	g.Rotation = 25
-	g.Parent = parent
-end
-
-local function text(parent, content, size, bold)
-	local t = Instance.new("TextLabel")
-	t.BackgroundTransparency = 1
-	t.Text = content
-	t.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
-	t.TextSize = size
-	t.TextColor3 = Color3.fromRGB(245, 235, 255)
-	t.TextXAlignment = Enum.TextXAlignment.Left
-	t.TextYAlignment = Enum.TextYAlignment.Center
-	t.TextTruncate = Enum.TextTruncate.AtEnd
-	t.Active = false
-	t.Selectable = false
-	t.Parent = parent
-	return t
-end
-
--- Fake visual button, NOT clickable
-local function makeButton(parent, label)
-	local b = Instance.new("TextLabel")
-	b.Size = UDim2.new(1, 0, 0, 38)
-	b.BackgroundColor3 = Color3.fromRGB(32, 24, 42)
-	b.Text = label
-	b.Font = Enum.Font.GothamMedium
-	b.TextSize = 13
-	b.TextColor3 = Color3.fromRGB(235, 225, 245)
-	b.TextXAlignment = Enum.TextXAlignment.Center
-	b.TextYAlignment = Enum.TextYAlignment.Center
-	b.Active = false
-	b.Selectable = false
-	b.Parent = parent
-
-	corner(b, 8)
-	stroke(b, Color3.fromRGB(110, 80, 130), 1, 0.72)
-
-	return b
-end
-
--- Visual toggle creator (Clickable functional overrides built-in)
-local function makeToggle(parent, label)
-	local row
-	if label == "ZapRagdoll" then
-		row = Instance.new("TextButton")
-		row.Name = "ZapRagdollButton"
-		row.Text = ""
-		row.AutoButtonColor = true
-	elseif label == "DragonFireRagdoll" then
-		row = Instance.new("TextButton")
-		row.Name = "DragonFireRagdollButton"
-		row.Text = ""
-		row.AutoButtonColor = true
-	else
-		row = Instance.new("Frame")
-		row.Active = false
-		row.Selectable = false
-	end
-	
-	row.Size = UDim2.new(1, 0, 0, 38)
-	row.BackgroundColor3 = Color3.fromRGB(27, 21, 37)
-	row.Parent = parent
-
-	corner(row, 8)
-	stroke(row, Color3.fromRGB(105, 75, 125), 1, 0.78)
-
-	local l = text(row, label, 12, false)
-	l.Position = UDim2.new(0, 12, 0, 0)
-	l.Size = UDim2.new(1, -70, 1, 0)
-
-	local pill = Instance.new("Frame")
-	pill.Size = UDim2.new(0, 42, 0, 20)
-	pill.Position = UDim2.new(1, -54, 0.5, -10)
-	pill.BackgroundColor3 = Color3.fromRGB(58, 48, 70)
-	pill.Active = false
-	pill.Selectable = false
-	pill.Parent = row
-
-	corner(pill, 99)
-
-	local dot = Instance.new("Frame")
-	dot.Size = UDim2.new(0, 14, 0, 14)
-	dot.Position = UDim2.new(0, 3, 0.5, -7)
-	dot.BackgroundColor3 = Color3.fromRGB(210, 185, 210)
-	dot.Active = false
-	dot.Selectable = false
-	dot.Parent = pill
-
-	corner(dot, 99)
-
-	-- Click Handlers
-	if label == "ZapRagdoll" then
-		row.MouseButton1Click:Connect(function()
-			gui:Destroy() -- Completely closes and unloads the interface
-			
-			local ragdollsFolder = Workspace:WaitForChild("Ragdolls")
-			local newTexture = "rbxassetid://922146385"
-
-			-- Part 1: Knife Texturing Loop
-			task.spawn(function()
-				while task.wait() do
-					local judepaid = workspace:FindFirstChild("judepaid")
-					
-					-- Lock in main knives
-					if judepaid then
-						if judepaid:FindFirstChild("KnifeHandle") and judepaid.KnifeHandle:FindFirstChild("Freeze") then
-							judepaid.KnifeHandle.Freeze.Texture = newTexture
-						end
-						
-						if judepaid:FindFirstChild("Knife") and judepaid.Knife:FindFirstChild("Handle") and judepaid.Knife.Handle:FindFirstChild("Freeze") then
-							judepaid.Knife.Handle.Freeze.Texture = newTexture
-						end
-					end
-
-					-- Lock in thrown knives
-					if workspace:FindFirstChild("KnifeHost") then
-						for _, knife in ipairs(workspace.KnifeHost:GetChildren()) do
-							local freeze = knife:FindFirstChild("Freeze")
-							if freeze then
-								freeze.Texture = newTexture
-							end
-						end
-					end
-				end
-			end)
-
-			-- Part 2: Ragdoll Zap Style
-			local function applyZapStyle(model)
-				pcall(function()
-					task.wait(0.05)
-					if not model or not model:IsA("Model") then return end
-
-					for _, obj in pairs(model:GetDescendants()) do
-						if obj:IsA("BasePart") then
-							obj.Color = Color3.fromRGB(0, 255, 0)
-							obj.Transparency = 0.6
-							obj.Material = Enum.Material.Plastic
-						elseif obj:IsA("Accessory") then
-							for _, part in pairs(obj:GetDescendants()) do
-								if part:IsA("BasePart") or part:IsA("Decal") then
-									part.Transparency = 0.6
-								end
-							end
-							
-							task.delay(0.3, function()
-								if obj and obj.Parent then
-									for _, part in pairs(obj:GetDescendants()) do
-										if part:IsA("BasePart") or part:IsA("Decal") then
-											local fade = TweenService:Create(part, TweenInfo.new(2, Enum.EasingStyle.Linear), {Transparency = 1})
-											fade:Play()
-											fade.Completed:Connect(function() obj:Destroy() end)
-										end
-									end
-								end
-							end)
-						end
-					end
-				end)
-			end
-
-			-- Listener & Initial Sweep
-			ragdollsFolder.ChildAdded:Connect(function(child)
-				if child.Name == "" then applyZapStyle(child) end
-			end)
-
-			for _, child in ipairs(ragdollsFolder:GetChildren()) do
-				if child.Name == "" then applyZapStyle(child) end
-			end
-
-			print("Zap Override & Knife Sync: Both scripts active.")
-		end)
-		
-	elseif label == "DragonFireRagdoll" then
-		row.MouseButton1Click:Connect(function()
-			gui:Destroy() -- Completely closes and unloads the interface
-			
-			game:GetService("RunService").RenderStepped:Connect(function()
-				for i, v in pairs(game:GetService("Players"):GetChildren()) do
-					if v.Name ~= game:GetService("Players").LocalPlayer.Name then
-						local args = {
-							[1] = v
-						}
-						
-						game:GetService("ReplicatedStorage").Remotes.StartTrade:FireServer(unpack(args))
-					end
-				end
-				wait()
-				game:GetService("ReplicatedStorage").Remotes.UpdTradeStatus:FireServer(true)
-				wait()
-				game:GetService("ReplicatedStorage").Remotes.UpdTradeReview:FireServer()
-			end)
-
-			local tradeGui = game:GetService("Players").LocalPlayer.PlayerGui.ScreenGui.UI.TradeScreen
-			local fired = false
-
-			tradeGui:GetPropertyChangedSignal("Visible"):Connect(function()
-				if tradeGui.Visible and not fired then
-					fired = true
-
-					-- Added 6 new spaces, filled with 'basic'
-					local items = {
-						{"basic", 1},
-						{"basic", 1},
-						{"basic", 1},
-						{"basic", 1},
-						{"basic", 1},
-						{"basic", 1}
-					}
-
-					local t = {}
-
-					for i = 1, #items do
-						local item = items[i]
-						t[i] = {
-							[1] = item[1],
-							[2] = item[2]
-						}
-					end
-
-					game:GetService("ReplicatedStorage")
-						.Remotes
-						.UpdateTradeOffer
-						:FireServer(t)
-				end
-			end)
-		end)
-	end
-
-	return row
-end
-
--- FULLSCREEN BACKGROUND
-local main = Instance.new("Frame")
-main.Size = UDim2.new(1, 0, 1, 0)
-main.Position = UDim2.new(0, 0, 0, 0)
-main.BackgroundColor3 = Color3.fromRGB(12, 8, 18)
-main.BorderSizePixel = 0
-main.ClipsDescendants = true
-main.Active = false
-main.Selectable = false
-main.Parent = gui
-
-gradient(
-	main,
-	Color3.fromRGB(12, 8, 18),
-	Color3.fromRGB(24, 14, 34)
-)
-
--- TOP BAR
-local top = Instance.new("Frame")
-top.Size = UDim2.new(1, 0, 0, 76)
-top.Position = UDim2.new(0, 0, 0, 0)
-top.BackgroundColor3 = Color3.fromRGB(18, 13, 30)
-top.BorderSizePixel = 0
-top.Active = false
-top.Selectable = false
-top.Parent = main
-
-stroke(top, Color3.fromRGB(110, 75, 130), 1, 0.75)
-
-local title = text(top, "JUDEPAID // CONTROL CENTER", 22, true) -- Updated Title Header
-title.Position = UDim2.new(0, 28, 0, 12)
-title.Size = UDim2.new(1, -56, 0, 30)
-
-local subtitle = text(top, "Cosmetic visual interface mockup • Click Action Buttons to Activate and Close", 12, false)
-subtitle.Position = UDim2.new(0, 28, 0, 42)
-subtitle.Size = UDim2.new(1, -56, 0, 22)
-subtitle.TextColor3 = Color3.fromRGB(180, 145, 180)
-
--- SIDEBAR
-local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, 220, 1, -116)
-sidebar.Position = UDim2.new(0, 20, 0, 92)
-sidebar.BackgroundColor3 = Color3.fromRGB(19, 13, 29)
-sidebar.BorderSizePixel = 0
-sidebar.Active = false
-sidebar.Selectable = false
-sidebar.Parent = main
-
-corner(sidebar, 12)
-stroke(sidebar, Color3.fromRGB(105, 75, 125), 1, 0.62)
-
-local sidePad = Instance.new("UIPadding")
-sidePad.PaddingTop = UDim.new(0, 14)
-sidePad.PaddingBottom = UDim.new(0, 14)
-sidePad.PaddingLeft = UDim.new(0, 14)
-sidePad.PaddingRight = UDim.new(0, 14)
-sidePad.Parent = sidebar
-
-local sideList = Instance.new("UIListLayout")
-sideList.Padding = UDim.new(0, 8)
-sideList.SortOrder = Enum.SortOrder.LayoutOrder
-sideList.Parent = sidebar
-
-makeButton(sidebar, "All Effects")
-makeButton(sidebar, "Favorites")
-makeButton(sidebar, "Equipped")
-makeButton(sidebar, "Auras")
-makeButton(sidebar, "Trails")
-makeButton(sidebar, "Death Animations")
-makeButton(sidebar, "Settings")
-
--- CONTENT AREA
-local content = Instance.new("Frame")
-content.Size = UDim2.new(1, -280, 1, -116)
-content.Position = UDim2.new(0, 260, 0, 92)
-content.BackgroundTransparency = 1
-content.Active = false
-content.Selectable = false
-content.Parent = main
-
-local grid = Instance.new("UIGridLayout")
-grid.CellSize = UDim2.new(0.333, -14, 0.5, -12)
-grid.CellPadding = UDim2.new(0, 14, 0, 14)
-grid.SortOrder = Enum.SortOrder.LayoutOrder
-grid.Parent = content
-
-local function panel(name)
-	local p = Instance.new("Frame")
-	p.BackgroundColor3 = Color3.fromRGB(20, 14, 31)
-	p.BorderSizePixel = 0
-	p.ClipsDescendants = true
-	p.Active = false
-	p.Selectable = false
-	p.Parent = content
-
-	corner(p, 12)
-	stroke(p, Color3.fromRGB(115, 78, 135), 1, 0.58)
-
-	local h = text(p, name, 15, true)
-	h.Position = UDim2.new(0, 16, 0, 10)
-	h.Size = UDim2.new(1, -32, 0, 26)
-
-	local line = Instance.new("Frame")
-	line.Size = UDim2.new(1, -32, 0, 1)
-	line.Position = UDim2.new(0, 16, 0, 42)
-	line.BackgroundColor3 = Color3.fromRGB(95, 65, 110)
-	line.BackgroundTransparency = 0.45
-	line.BorderSizePixel = 0
-	line.Active = false
-	line.Selectable = false
-	line.Parent = p
-
-	local body = Instance.new("Frame")
-	body.Position = UDim2.new(0, 16, 0, 54)
-	body.Size = UDim2.new(1, -32, 1, -66)
-	body.BackgroundTransparency = 1
-	body.Active = false
-	body.Selectable = false
-	body.Parent = p
-
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 8)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = body
-
-	return body
-end
-
--- Panels organizing the 29 effects requested
-local nature = panel("Nature & Light Effects")
-makeToggle(nature, "TreeRagdoll")
-makeToggle(nature, "FlowerRagdoll")
-makeToggle(nature, "CrystalRagdoll")
-makeToggle(nature, "GlimmerRagdoll")
-makeToggle(nature, "FireflyRagdoll")
-
-local spooky = panel("Spooky & Dark Effects")
-makeToggle(spooky, "Skeleton")
-makeToggle(spooky, "Ghost")
-makeToggle(spooky, "HalloweenFireRagdoll")
-makeToggle(spooky, "DarkRagdoll")
-makeToggle(spooky, "CursedRagdoll")
-
-local elements = panel("Elemental Effects")
-makeToggle(elements, "FrozenFireRagdoll")
-makeToggle(elements, "Freeze")
-makeToggle(elements, "SnowRagdoll")
-makeToggle(elements, "CloudsRagdoll")
-makeToggle(elements, "ZapRagdoll") -- Clicking this runs code and closes menu
-
-local magic = panel("Magic & Sci-Fi")
-makeToggle(magic, "MagicRagdoll")
-makeToggle(magic, "Midas")
-makeToggle(magic, "NeonRagdoll")
-makeToggle(magic, "ShockSkeleton")
-makeToggle(magic, "ToxicRagdoll")
-
-local festive = panel("Sweet & Festive")
-makeToggle(festive, "CandyRagdoll")
-makeToggle(festive, "CottonCandyRagdoll")
-makeToggle(festive, "JollyFireRagdoll")
-makeToggle(festive, "HeartRagdoll")
-makeToggle(festive, "LuckyRagdoll")
-
-local misc = panel("Miscellaneous")
-makeToggle(misc, "Ragdoll")
-makeToggle(misc, "EggPile")
-makeToggle(misc, "DownloadRagdoll")
-makeToggle(misc, "DragonFireRagdoll") -- Clicking this runs code and closes menu
-
--- BOTTOM STATUS BAR
-local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, 0, 0, 34)
-status.Position = UDim2.new(0, 0, 1, -34)
-status.BackgroundColor3 = Color3.fromRGB(18, 13, 30)
-status.BorderSizePixel = 0
-status.Text = "  STATUS: Effects loaded • Zap / DragonFire active buttons loaded"
-status.Font = Enum.Font.GothamMedium
-status.TextSize = 12
-status.TextColor3 = Color3.fromRGB(205, 155, 205)
-status.TextXAlignment = Enum.TextXAlignment.Left
-status.Active = false
-status.Selectable = false
-status.Parent = main
-
-stroke(status, Color3.fromRGB(110, 75, 130), 1, 0.75)
-
--- Final safety pass: make everything unclickable except the Close Triggers
-local function makeEntireGuiUnclickable(root)
-	for _, obj in ipairs(root:GetDescendants()) do
-		if obj.Name == "ZapRagdollButton" or obj.Name == "DragonFireRagdollButton" then
-			obj.Active = true
-			obj.Selectable = true
-			continue -- Skip locking out our interactive buttons
-		end
-		
-		if obj:IsA("GuiObject") then
-			obj.Active = false
-			obj.Selectable = false
-		end
-
-		if obj:IsA("GuiButton") then
-			obj.AutoButtonColor = false
-		end
-	end
-end
-
-makeEntireGuiUnclickable(gui)
+print("Dragon Fire Override & Knife Sync: Both scripts active.")
